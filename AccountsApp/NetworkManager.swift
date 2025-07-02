@@ -1,6 +1,6 @@
 import Foundation
 
-struct TransparentAccount: Identifiable, Codable {
+struct TransparentAccount: Identifiable, Codable, Hashable {
     var id: String { accountNumber }
     let accountNumber: String
     let bankCode: String
@@ -17,12 +17,25 @@ struct TransparentAccount: Identifiable, Codable {
 
 class NetworkManager: ObservableObject {
     @Published var accounts: [TransparentAccount] = []
+    @Published var isLoading = true
+    @Published var error: String?
 
-    private let apiKey = Secrets.apiKey // Načtení z .env
+    private let apiKey = Secrets.apiKey
 
-    func fetchAccounts() {
+    init() {
+        // Automaticky začít načítat data při inicializaci
+        fetchAccounts()
+    }
+
+    func fetchAccounts(completion: (() -> Void)? = nil) {
+        isLoading = true
+        error = nil
+        
         guard let url = URL(string: "https://webapi.developers.erstegroup.com/api/csas/sandbox/v3/transparentAccounts") else {
             print("Neplatná URL")
+            error = "Neplatná URL"
+            isLoading = false
+            completion?()
             return
         }
 
@@ -31,25 +44,32 @@ class NetworkManager: ObservableObject {
         request.setValue(apiKey, forHTTPHeaderField: "web-api-key")
 
         URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("Chyba requestu: \(error.localizedDescription)")
-                return
-            }
-
-            guard let data = data else {
-                print("Žádná data")
-                return
-            }
-
-            print(String(data: data, encoding: .utf8) ?? "Nelze dekódovat JSON na String")
-
-            do {
-                let decoded = try JSONDecoder().decode(ResponseWrapper.self, from: data)
-                DispatchQueue.main.async {
-                    self.accounts = decoded.accounts
+            DispatchQueue.main.async {
+                defer {
+                    self.isLoading = false
+                    completion?()
                 }
-            } catch {
-                print("Chyba dekódování: \(error)")
+
+                if let error = error {
+                    print("Chyba requestu: \(error.localizedDescription)")
+                    self.error = error.localizedDescription
+                    return
+                }
+
+                guard let data = data else {
+                    print("Žádná data")
+                    self.error = "Žádná data nebyla přijata"
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(ResponseWrapper.self, from: data)
+                    self.accounts = decoded.accounts
+                } catch {
+                    print("Chyba dekódování: \(error)")
+                    print(String(data: data, encoding: .utf8) ?? "Nešlo převést na text")
+                    self.error = "Chyba při zpracování dat"
+                }
             }
         }.resume()
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-// Ujisti se, že .env je přidán do projektu jako Resource a je součástí targetu v Xcode!
+// .env je přidán do projektu jako Resource a je součástí targetu v Xcode -> kontrola zda jsou .env i Resources v .gitignore!
 enum Secrets {
     static var apiKey: String {
         guard

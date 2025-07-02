@@ -11,7 +11,7 @@ import SwiftUI
 struct AccountsAppApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppLoadingView() // výchozí začátek aplikace pri spuštění
         }
     }
 }
